@@ -55,8 +55,8 @@ function preprocessAb_ls(A,b,N)
     SA = []
     Sb = []
     for indexcollection in dividedindices
-        push!(SA, HDA[indexcollection, :])
-        push!(Sb, HDb[indexcollection, :])
+        push!(SA, HDA[indexcollection, :] / sqrt(N*length(indexcollection)))
+        push!(Sb, HDb[indexcollection, :] / sqrt(N*length(indexcollection)))
     end
     
     return SA, Sb
