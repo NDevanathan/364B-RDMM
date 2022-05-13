@@ -1,10 +1,12 @@
 using LinearAlgebra
 using Random
 using Statisitics
-using Distributed;
+using Distributed
 using Dagger
 using FFTW
 
+"""
+"""
 function radmm_ls(A,b,N,maxiter,mu)
     addprocs(N)
     n = size(A,1)
@@ -27,7 +29,9 @@ function radmm_ls(A,b,N,maxiter,mu)
     return xstar,lambdastar
 end
 
-function radmm_ridge(A,b,N,maxiter)
+"""
+"""
+function radmm_ridge(A,b,eta,N,maxiter)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
@@ -46,29 +50,42 @@ function radmm_ridge(A,b,N,maxiter)
     lambdastar = fetch(lambda[1])
     
     rmprocs(workers())
-    return ystar,lambdastar
+    return A'*ystar/eta,lambdastar
 end
 
+"""
+"""
 function radmm_qr(A,b,N,maxiter)
+    addprocs(N)
+    
+    # unimplemented
+    
+    rmprocs(workers())
+    return
+end
+
+"""
+"""
+function radmm_socp(A,wy,wx,N,maxiter)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
-    y = [zeros(n) for i=1:N]
-    lambda = [zeros(n) for i=1:N]
+    z = [zeros(n) for i=1:N]
+    lambda = [(A'*wy-wx)/N for i=1:N]
     
     for k=1:maxiter
         for i=1:N
-            y[i] = Dagger.@spawn inv(SAt[i]'*SAt[i]+I(n)/N)*(b/N-lambda[i])
-            lambda[i] = Dagger.@spawn lambda[i]+mu*(A*A'+I(n)/N)*(y[i]-mean(y))
+            z[i] = Dagger.@spawn -(lambda[i])\(SAhat[i]'*SAhat[i])
+            lambda[i] = Dagger.@spawn lambda[i]+mu*Ahat'*Ahat*(z[i]-mean(z))
         end
     end
     
-    ystar = fetch(y[1])
+    zstar = fetch(z[1])
     lambdastar = fetch(lambda[1])
     
     rmprocs(workers())
-    return ystar,lambdastar
+    return zstar,lambdastar
 end
 
 """
