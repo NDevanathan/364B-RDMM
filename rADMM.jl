@@ -7,7 +7,7 @@ using FFTW
 
 """
 """
-function radmm_ls(A,b,N,maxiter,mu)
+function radmm_ls(A,b,N,maxiter,mu,rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
@@ -32,7 +32,7 @@ end
 
 """
 """
-function radmm_ridge(A,b,eta,N,maxiter)
+function radmm_ridge(A,b,eta,N,maxiter,rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
@@ -57,7 +57,7 @@ end
 
 """
 """
-function radmm_qr(A,b,N,maxiter)
+function radmm_qr(A,b,N,maxiter,rflag=true)
     addprocs(N)
     
     # unimplemented
@@ -68,7 +68,7 @@ end
 
 """
 """
-function radmm_socp(A,wy,wx,N,maxiter)
+function radmm_socp(A,wy,wx,N,maxiter,rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
@@ -102,7 +102,7 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocessAb_ls(A,b,N)
+function preprocessAb_ls(A,b,N,rflag=true)
     # TO DO: Allow for more general choices of N
     # TO DO: Check correctness
     n = size(A, 1)
@@ -137,7 +137,7 @@ Inputs:
 Outputs:
     SAt - List of all S_i*At.
 """
-function preprocessA_ridge(A,N)
+function preprocessA_ridge(A,N,rflag=true)
     # TO DO: Allow for more general choices of N
     # TO DO: Check correctness
     n = size(A, 1)
@@ -168,7 +168,7 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocessAb_quadreg(A,b)
+function preprocessAb_quadreg(A,b,rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
