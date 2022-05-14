@@ -7,12 +7,12 @@ using FFTW
 
 """
 """
-function radmm_ls(A, b, N, maxiter, mu; rflag=true)
+function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
-    SA, Sb = preprocessAb_ls(A, b, N; rflag=rflag)
+    SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
     x = [zeros(d) for i=1:N]
     lambda = [zeros(d) for i=1:N]
     
@@ -32,12 +32,12 @@ end
 
 """
 """
-function radmm_ridge(A, b, eta, N, maxiter; rflag=true)
+function rdmm_ridge(A, b, eta, N, maxiter; rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
-    SAt = preprocessA_ridge(A, N; rflag=rflag)
+    SAt = preprocess_ridge(A, N; rflag=rflag)
     y = [zeros(n) for i=1:N]
     lambda = [zeros(n) for i=1:N]
     
@@ -57,7 +57,7 @@ end
 
 """
 """
-function radmm_qr(A, b, N, maxiter, rflag=true)
+function rdmm_qr(A, b, N, maxiter, rflag=true)
     addprocs(N)
     
     # unimplemented
@@ -68,18 +68,20 @@ end
 
 """
 """
-function radmm_socp(A, wy, wx, N, maxiter; rflag=true)
+function rdmm_socp(A, wy, wx, N, maxiter; rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
+    Ahat = vcat(A, I(n))
+    SAhat = preprocess_socp(Ahat)
     z = [zeros(n) for i=1:N]
     lambdavector = (A'*wy-wx)/N
     lambda = [lambdavector for i=1:N]
     
     for k=1:maxiter
         for i=1:N
-            z[i] = Dagger.@spawn -(lambda[i])\(SAhat[i]'*SAhat[i])
+            z[i] = Dagger.@spawn - (SAhat[i]'*SAhat[i]) \ (lambda[i])
             lambda[i] = Dagger.@spawn lambda[i]+mu*Ahat'*Ahat*(z[i]-mean(z))
         end
     end
@@ -99,7 +101,7 @@ Inputs:
     N - Number of agents
     
 Outputs:
-    D - Matrix with iid random Bernoulli(1/2) entries, i.e., +/- 1 entries.
+    D - Matrix with iid random Rademacher entries, i.e., +/- 1 entries.
     dividedindices - Partition of 1:n into N pieces roughly equal-sized pieces
 """
 function generatePD(n, N; rflag=true)
@@ -121,7 +123,7 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocessAb_ls(A, b, N; rflag=true)
+function preprocess_ls(A, b, N; rflag=true)
     # TO DO: Allow for more general choices of N
     # TO DO: Check correctness
     n = size(A, 1)
@@ -155,7 +157,7 @@ Inputs:
 Outputs:
     SAt - List of all S_i*At.
 """
-function preprocessA_ridge(A, N; rflag=true)
+function preprocess_ridge(A, N; rflag=true)
     # TO DO: Allow for more general choices of N
     # TO DO: Check correctness
     n = size(A, 1)
@@ -185,12 +187,12 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocessAb_quadreg(A, b; rflag=true)
+function preprocess_quadreg(A, b; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
     if n%2 != 0
-        throw(DimensionMismatch("N must divide the number of rows of A"))
+        throw(DimensionMismatch("2 must divide the number of rows of A"))
     end
     
     dividedindices, D = generatePD(n, N; rflag=rflag)
@@ -205,5 +207,34 @@ function preprocessAb_quadreg(A, b; rflag=true)
     end
     
     return SA, Sb
+end
+
+"""
+Utility function to preprocess A and b for RDMM Regularized LS
+Inputs:
+    Ahat - A matrix of size n by (d+n), where the right-most n by n block is the
+           identity matrix.
+
+Outputs:
+    SAhat - List of all S_i*Ahat.
+"""
+function preprocess_quadreg(Ahat; rflag=true)
+    # TO DO: Check to make sure we don't need n >= 2*d
+    n = size(A, 1)
+    d = size(A, 2)
+    if n%2 != 0
+        throw(DimensionMismatch("N must divide the number of rows of A"))
+    end
+    
+    dividedindices, D = generatePD(n, N; rflag=rflag)
+    HDAhat = FFTW.r2r(D*Ahat, FFTW.DHT, 1)
+    
+    SAhat = []
+    for indexcollection in dividedindices
+        push!(SAhat, HDAhat[indexcollection, :] / 
+            sqrt(N*length(indexcollection)))
+    end
+    
+    return SAhat
 end
 
