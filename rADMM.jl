@@ -59,12 +59,13 @@ end
 
 """
 """
-function rdmm_qr(A, b, N, maxiter, rflag=true)
+function rdmm_quadreg(A, b, N, maxiter, rflag=true)
     addprocs(N)
     
     n = size(A,1)
     d = size(A,2)
     
+    SA, Sb = preprocess_quadreg(A, b; rflag=true)
     x = zeros(d)
     y = zeros(d)
     lambda = [zeros(d) for i=1:N]
@@ -74,8 +75,8 @@ function rdmm_qr(A, b, N, maxiter, rflag=true)
         varx = Variable(d)
         vary = Variable(d)
         
-        probx = minimize(0.5*norm(S1A*xvar-S1b,2)^2+0.5*g(xvar)-lamda'*xvar)
-        proby = minimize(0.5*norm(S1A*yvar-S1b,2)^2+0.5*g(yvar)-lamda'*yvar)
+        probx = minimize(0.5*norm(SA[1]*xvar-Sb[1])^2+0.5*g(xvar)-lambda'*xvar)
+        proby = minimize(0.5*norm(SA[1]*yvar-Sb[1])^2+0.5*g(yvar)-lambda'*yvar)
         
         solve!(probx, SCS.Optimizer(verbose=false)
         solve!(proby, SCS.Optimizer(verbose=false)
