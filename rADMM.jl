@@ -15,20 +15,20 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
-    x = [zeros(d,1) for i=1:N]
-    lambda = [zeros(d,1) for i=1:N]
+    x = [[zeros(d,1) for i=1:N] for k=1:maxiter]
+    lambda = [[zeros(d,1) for i=1:N] for k=1:maxiter+1]
     
     for k=1:maxiter
         for i=1:N
-            x[i] = Dagger.@spawn (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[i])
-            lambda[i] = Dagger.@spawn lambda[i]+mu*A'*A*(x[i]-mean(x))
+            x[k][i] = Dagger.@spawn (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
+            lambda[k+1][i] = Dagger.@spawn lambda[k][i]+mu*A'*A*(x[k][i]-mean(x[k]))
         end
         println("Done with $k iterations")
         flush!(stdout)
     end
     
-    xstar = fetch(x[1])
-    lambdastar = fetch(lambda[1])
+    xstar = fetch(x[maxiter][1])
+    lambdastar = fetch(lambda[maxiter+1][1])
     
     rmprocs(workers())
     return xstar,lambdastar
