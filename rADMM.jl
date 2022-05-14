@@ -15,14 +15,16 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
-    x = [zeros(d) for i=1:N]
-    lambda = [zeros(d) for i=1:N]
+    x = [zeros(d,1) for i=1:N]
+    lambda = [zeros(d,1) for i=1:N]
     
     for k=1:maxiter
         for i=1:N
             x[i] = Dagger.@spawn (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[i])
             lambda[i] = Dagger.@spawn lambda[i]+mu*A'*A*(x[i]-mean(x))
         end
+        println("Done with $k iterations")
+        flush!(stdout)
     end
     
     xstar = fetch(x[1])
@@ -40,8 +42,8 @@ function rdmm_ridge(A, b, eta, N, maxiter; rflag=true)
     d = size(A,2)
     
     SAt = preprocess_ridge(A, N; rflag=rflag)
-    y = [zeros(n) for i=1:N]
-    lambda = [zeros(n) for i=1:N]
+    y = [zeros(n,1) for i=1:N]
+    lambda = [zeros(n,1) for i=1:N]
     
     for k=1:maxiter
         for i=1:N
@@ -66,9 +68,9 @@ function rdmm_quadreg(A, b, N, maxiter, rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_quadreg(A, b; rflag=true)
-    x = zeros(d)
-    y = zeros(d)
-    lambda = [zeros(d) for i=1:N]
+    x = zeros(d,1)
+    y = zeros(d,1)
+    lambda = [zeros(d,1) for i=1:N]
     
     for k=1:maxiter
         # temporarily implemented in convex while we search for a better solution
@@ -104,7 +106,7 @@ function rdmm_socp(A, wy, wx, N, maxiter; rflag=true)
     
     Ahat = vcat(A, I(n))
     SAhat = preprocess_socp(Ahat)
-    z = [zeros(n) for i=1:N]
+    z = [zeros(n,1) for i=1:N]
     lambdavector = (A'*wy-wx)/N
     lambda = [lambdavector for i=1:N]
     
