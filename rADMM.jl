@@ -1,6 +1,6 @@
 using LinearAlgebra
 using Random
-using Statisitics
+using Statistics
 using Distributed
 using Dagger
 using FFTW
@@ -78,8 +78,8 @@ function rdmm_quadreg(A, b, N, maxiter, rflag=true)
         probx = minimize(0.5*norm(SA[1]*xvar-Sb[1])^2+0.5*g(xvar)-lambda'*xvar)
         proby = minimize(0.5*norm(SA[1]*yvar-Sb[1])^2+0.5*g(yvar)-lambda'*yvar)
         
-        solve!(probx, SCS.Optimizer(verbose=false)
-        solve!(proby, SCS.Optimizer(verbose=false)
+        solve!(probx, SCS.Optimizer(verbose=false))
+        solve!(proby, SCS.Optimizer(verbose=false))
         
         x = evaluate(xvar)
         y = evaulate(yvar)
@@ -247,7 +247,7 @@ Inputs:
 Outputs:
     SAhat - List of all S_i*Ahat.
 """
-function preprocess_quadreg(Ahat; rflag=true)
+function preprocess_socp(Ahat; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
