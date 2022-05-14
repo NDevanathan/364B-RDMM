@@ -19,12 +19,14 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     lambda = [[zeros(d,1) for i=1:N] for k=1:maxiter+1]
     
     for k=1:maxiter
+        println("Starting iteration $k")
+        flush(stdout)
         for i=1:N
             x[k][i] = Dagger.@spawn (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
             lambda[k+1][i] = Dagger.@spawn lambda[k][i]+mu*A'*A*(x[k][i]-mean(x[k]))
         end
         println("Done with $k iterations")
-        flush!(stdout)
+        flush(stdout)
     end
     
     xstar = fetch(x[maxiter][1])
@@ -36,7 +38,7 @@ end
 
 """
 """
-function rdmm_ridge(A, b, eta, N, maxiter; rflag=true)
+function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
@@ -48,6 +50,8 @@ function rdmm_ridge(A, b, eta, N, maxiter; rflag=true)
     for k=1:maxiter
         for i=1:N
             y[i] = Dagger.@spawn (SAt[i]'*SAt[i]+I(n)/N) \ (b/N-lambda[i])
+        end
+        for i=1:N
             lambda[i] = Dagger.@spawn lambda[i]+mu*(A*A'+I(n)/N)*(y[i]-mean(y))
         end
     end
@@ -61,7 +65,7 @@ end
 
 """
 """
-function rdmm_quadreg(A, b, N, maxiter, rflag=true)
+function rdmm_quadreg(A, b, N, maxiter, mu; rflag=true)
     addprocs(N)
     
     n = size(A,1)
@@ -99,7 +103,7 @@ end
 
 """
 """
-function rdmm_socp(A, wy, wx, N, maxiter; rflag=true)
+function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
@@ -112,7 +116,7 @@ function rdmm_socp(A, wy, wx, N, maxiter; rflag=true)
     
     for k=1:maxiter
         for i=1:N
-            z[i] = Dagger.@spawn - (SAhat[i]'*SAhat[i]) \ (lambda[i])
+            z[i] = Dagger.@spawn -(SAhat[i]'*SAhat[i]) \ (lambda[i])
             lambda[i] = Dagger.@spawn lambda[i]+mu*Ahat'*Ahat*(z[i]-mean(z))
         end
     end
@@ -183,7 +187,7 @@ end
 Utility function to preprocess A for RDMM Ridge
 Inputs:
     A - A matrix of size n by d.
-    N - The number of agents. N should divide n (the number of rows in A).
+    N - The number of agents. N should divide d (the number of columns in A).
 
 Outputs:
     SAt - List of all S_i*At.
@@ -193,11 +197,11 @@ function preprocess_ridge(A, N; rflag=true)
     # TO DO: Check correctness
     n = size(A, 1)
     d = size(A, 2)
-    if n%N != 0
-        throw(DimensionMismatch("N must divide the number of rows of A"))
+    if d%N != 0
+        throw(DimensionMismatch("N must divide the number of columns of A"))
     end
     
-    dividedindices, D = generatePD(n, N; rflag=rflag)
+    dividedindices, D = generatePD(d, N; rflag=rflag)
     HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
     
     SAt = []
