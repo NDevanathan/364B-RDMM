@@ -4,6 +4,8 @@ using Statisitics
 using Distributed
 using Dagger
 using FFTW
+using Convex
+using SCS
 
 """
 """
@@ -12,7 +14,7 @@ function radmm_ls(A,b,N,maxiter,mu,rflag=true)
     n = size(A,1)
     d = size(A,2)
     
-    SA, Sb = preprocessAb_ls(A,b,N)
+    SA, Sb = preprocessAb_ls(A,b,N,rflag)
     x = [zeros(d) for i=1:N]
     lambda = [zeros(d) for i=1:N]
     
@@ -37,7 +39,7 @@ function radmm_ridge(A,b,eta,N,maxiter,rflag=true)
     n = size(A,1)
     d = size(A,2)
     
-    SAt = preprocessA_ridge(A,N)
+    SAt = preprocessA_ridge(A,N,rflag)
     y = [zeros(n) for i=1:N]
     lambda = [zeros(n) for i=1:N]
     
@@ -57,13 +59,39 @@ end
 
 """
 """
-function radmm_qr(A,b,N,maxiter,rflag=true)
+function radmm_qr(A,b,g,maxiter,rflag=true)
     addprocs(N)
     
-    # unimplemented
+    n = size(A,1)
+    d = size(A,2)
+    
+    x = zeros(d)
+    y = zeros(d)
+    lambda = [zeros(d) for i=1:N]
+    
+    for k=1:maxiter
+        # temporarily implemented in convex while we search for a better solution
+        varx = Variable(d)
+        vary = Variable(d)
+        
+        probx = minimize(0.5*norm(S1A*xvar-S1b,2)^2+0.5*g(xvar)-lamda'*xvar)
+        proby = minimize(0.5*norm(S1A*yvar-S1b,2)^2+0.5*g(yvar)-lamda'*yvar)
+        
+        solve!(probx, SCS.Optimizer(verbose=false)
+        solve!(proby, SCS.Optimizer(verbose=false)
+        
+        x = evaluate(xvar)
+        y = evaulate(yvar)
+        
+        # need Langarian
+        lambda[i] = Dagger.@spawn lambda[i]+mu*(A'*A+L*I(d))*(y-x)
+    end
+    
+    xstar = fetch(x)
+    lambdastar = fetch(lambda[1])
     
     rmprocs(workers())
-    return
+    return xstar, lambdastar
 end
 
 """
