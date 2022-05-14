@@ -9,12 +9,12 @@ using SCS
 
 """
 """
-function radmm_ls(A,b,N,maxiter,mu,rflag=true)
+function radmm_ls(A, b, N, maxiter, mu; rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
-    SA, Sb = preprocessAb_ls(A,b,N,rflag)
+    SA, Sb = preprocessAb_ls(A, b, N; rflag=rflag)
     x = [zeros(d) for i=1:N]
     lambda = [zeros(d) for i=1:N]
     
@@ -34,12 +34,12 @@ end
 
 """
 """
-function radmm_ridge(A,b,eta,N,maxiter,rflag=true)
+function radmm_ridge(A, b, eta, N, maxiter; rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
-    SAt = preprocessA_ridge(A,N,rflag)
+    SAt = preprocessA_ridge(A, N; rflag=rflag)
     y = [zeros(n) for i=1:N]
     lambda = [zeros(n) for i=1:N]
     
@@ -59,7 +59,7 @@ end
 
 """
 """
-function radmm_qr(A,b,g,maxiter,rflag=true)
+function radmm_qr(A, b, N, maxiter, rflag=true)
     addprocs(N)
     
     n = size(A,1)
@@ -96,13 +96,14 @@ end
 
 """
 """
-function radmm_socp(A,wy,wx,N,maxiter,rflag=true)
+function radmm_socp(A, wy, wx, N, maxiter; rflag=true)
     addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
     z = [zeros(n) for i=1:N]
-    lambda = [(A'*wy-wx)/N for i=1:N]
+    lambdavector = (A'*wy-wx)/N
+    lambda = [lambdavector for i=1:N]
     
     for k=1:maxiter
         for i=1:N
@@ -119,6 +120,24 @@ function radmm_socp(A,wy,wx,N,maxiter,rflag=true)
 end
 
 """
+Utility function to generate the random components needed for the delta-stable
+decomposition of identity.
+Inputs:
+    n - Number of dimensions
+    N - Number of agents
+    
+Outputs:
+    D - Matrix with iid random Bernoulli(1/2) entries, i.e., +/- 1 entries.
+    dividedindices - Partition of 1:n into N pieces roughly equal-sized pieces
+"""
+function generatePD(n, N; rflag=true)
+    dividedindices = rflag ? Iterators.partition(randperm(n), Int(ceil(n/N))) :
+        Iterators.partition(collect(1:n), Int(ceil(n/N))) 
+    D = rflag ? Diagonal(sign.(rand(n) .- 0.5)) : I(n)
+    return dividedindices, D
+end
+
+"""
 Utility function to preprocess A and b for RDMM LS
 Inputs:
     A - A matrix of size n by d
@@ -130,7 +149,7 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocessAb_ls(A,b,N,rflag=true)
+function preprocessAb_ls(A, b, N; rflag=true)
     # TO DO: Allow for more general choices of N
     # TO DO: Check correctness
     n = size(A, 1)
@@ -141,8 +160,7 @@ function preprocessAb_ls(A,b,N,rflag=true)
         throw(DimensionMismatch("N can be at most n/d"))
     end
     
-    dividedindices = Iterators.partition(randperm(n), Int(ceil(n/N)))
-    D = Diagonal(sign.(rand(n) .- 0.5))
+    dividedindices, D = generatePD(n, N; rflag=rflag)
     HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
     HDb = FFTW.r2r(D*b, FFTW.DHT)
     
@@ -165,7 +183,7 @@ Inputs:
 Outputs:
     SAt - List of all S_i*At.
 """
-function preprocessA_ridge(A,N,rflag=true)
+function preprocessA_ridge(A, N; rflag=true)
     # TO DO: Allow for more general choices of N
     # TO DO: Check correctness
     n = size(A, 1)
@@ -174,8 +192,7 @@ function preprocessA_ridge(A,N,rflag=true)
         throw(DimensionMismatch("N must divide the number of rows of A"))
     end
     
-    dividedindices = Iterators.partition(randperm(n), Int(ceil(n/N)))
-    D = Diagonal(sign.(rand(n) .- 0.5))
+    dividedindices, D = generatePD(n, N; rflag=rflag)
     HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
     
     SAt = []
@@ -196,7 +213,7 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocessAb_quadreg(A,b,rflag=true)
+function preprocessAb_quadreg(A, b; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
@@ -204,8 +221,7 @@ function preprocessAb_quadreg(A,b,rflag=true)
         throw(DimensionMismatch("N must divide the number of rows of A"))
     end
     
-    dividedindices = Iterators.partition(randperm(n), Int(ceil(n/2)))
-    D = Diagonal(sign.(rand(n) .- 0.5))
+    dividedindices, D = generatePD(n, N; rflag=rflag)
     HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
     HDb = FFTW.r2r(D*b, FFTW.DHT)
     
