@@ -74,7 +74,8 @@ function radmm_socp(A, wy, wx, N, maxiter; rflag=true)
     d = size(A,2)
     
     z = [zeros(n) for i=1:N]
-    lambda = [(A'*wy-wx)/N for i=1:N]
+    lambdavector = (A'*wy-wx)/N
+    lambda = [lambdavector for i=1:N]
     
     for k=1:maxiter
         for i=1:N
