@@ -10,30 +10,50 @@ using SCS
 """
 """
 function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
-    addprocs(N)
+    #addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
     SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
-    x = [[zeros(d,1) for i=1:N] for k=1:maxiter]
-    lambda = [[zeros(d,1) for i=1:N] for k=1:maxiter+1]
-    
-    for k=1:maxiter
-        println("Starting iteration $k")
-        flush(stdout)
-        for i=1:N
-            x[k][i] = Dagger.@spawn (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
-            lambda[k+1][i] = Dagger.@spawn lambda[k][i]+mu*A'*A*(x[k][i]-mean(x[k]))
-        end
-        println("Done with $k iterations")
-        flush(stdout)
+    x = Dict()
+    lambda = Dict()
+    for i=1:N
+        x[i] = zeros(d,1)
+        lambda[i] = zeros(d,1)
     end
     
-    xstar = fetch(x[maxiter][1])
-    lambdastar = fetch(lambda[maxiter+1][1])
+    xfin, lambdafin = Dagger.@spawn rdmm_ls_util(
+        x, lambda, SA, Sb, N; numiters=maxiter)
     
-    rmprocs(workers())
-    return xstar,lambdastar
+    xstar = fetch(xfin)
+    lambdastar = fetch(lambdafin)
+    
+    #rmprocs(workers())
+    return xstar, lambdastar
+end
+
+function rdmm_ls_util(x, lambda, SA, Sb, N; numiters=1000)
+    if numiters == 0
+        return x, lambda
+    end
+    
+    newx = Dict()
+    pieces = Dict()
+    newlambda = Dict()
+    for i=1:N
+        newx[i] = Dagger.@spawn (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
+    end
+    meanx = Dagger.@spawn mean(newx)
+    for i=1:N
+        for j=1:N
+            pieces[i,j] = Dagger.@spawn SA[i]'*SA[i]*(newx[j] - meanx)
+        end
+    end
+    for i=1:N
+        newlambda[i] = Dagger.@spawn sum([pieces[i,j] for j=1:N])
+    end
+    
+    return Dagger.@spawn rdmm_ls_util(newx, newlambda, SA, Sb, N; numiters=numiters-1)
 end
 
 """
@@ -151,21 +171,17 @@ Utility function to preprocess A and b for RDMM LS
 Inputs:
     A - A matrix of size n by d
     b - A column vector of size n
-    N - The number of agents. N should divide n (the number of rows in A),
-        and should also satisfy N <= n/d.
+    N - The number of agents. N should also satisfy N <= n/d.
 
 Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
 function preprocess_ls(A, b, N; rflag=true)
-    # TO DO: Allow for more general choices of N
     # TO DO: Check correctness
     n = size(A, 1)
     d = size(A, 2)
-    if n%N != 0
-        throw(DimensionMismatch("N must divide the number of rows of A"))
-    elseif N > n/d
+    if N > n/d
         throw(DimensionMismatch("N can be at most n/d"))
     end
     
@@ -176,8 +192,8 @@ function preprocess_ls(A, b, N; rflag=true)
     SA = []
     Sb = []
     for indexcollection in dividedindices
-        push!(SA, HDA[indexcollection, :] / sqrt(N*length(indexcollection)))
-        push!(Sb, HDb[indexcollection, :] / sqrt(N*length(indexcollection)))
+        push!(SA, HDA[indexcollection, :] / sqrt(n))
+        push!(Sb, HDb[indexcollection, :] / sqrt(n))
     end
     
     return SA, Sb
@@ -193,20 +209,16 @@ Outputs:
     SAt - List of all S_i*At.
 """
 function preprocess_ridge(A, N; rflag=true)
-    # TO DO: Allow for more general choices of N
     # TO DO: Check correctness
     n = size(A, 1)
     d = size(A, 2)
-    if d%N != 0
-        throw(DimensionMismatch("N must divide the number of columns of A"))
-    end
     
     dividedindices, D = generatePD(d, N; rflag=rflag)
     HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
     
     SAt = []
     for indexcollection in dividedindices
-        push!(SAt, HDAt[indexcollection, :] / sqrt(N*length(indexcollection)))
+        push!(SAt, HDAt[indexcollection, :] / sqrt(n))
     end
     
     return SAt
@@ -226,9 +238,6 @@ function preprocess_quadreg(A, b; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
-    if n%2 != 0
-        throw(DimensionMismatch("2 must divide the number of rows of A"))
-    end
     
     dividedindices, D = generatePD(n, N; rflag=rflag)
     HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
@@ -237,8 +246,8 @@ function preprocess_quadreg(A, b; rflag=true)
     SA = []
     Sb = []
     for indexcollection in dividedindices
-        push!(SA, HDA[indexcollection, :] / sqrt(N*length(indexcollection)))
-        push!(Sb, HDb[indexcollection, :] / sqrt(N*length(indexcollection)))
+        push!(SA, HDA[indexcollection, :] / sqrt(n))
+        push!(Sb, HDb[indexcollection, :] / sqrt(n))
     end
     
     return SA, Sb
@@ -257,9 +266,6 @@ function preprocess_socp(Ahat; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
-    if n%2 != 0
-        throw(DimensionMismatch("N must divide the number of rows of A"))
-    end
     
     dividedindices, D = generatePD(n, N; rflag=rflag)
     HDAhat = FFTW.r2r(D*Ahat, FFTW.DHT, 1)
@@ -267,7 +273,7 @@ function preprocess_socp(Ahat; rflag=true)
     SAhat = []
     for indexcollection in dividedindices
         push!(SAhat, HDAhat[indexcollection, :] / 
-            sqrt(N*length(indexcollection)))
+            sqrt(n))
     end
     
     return SAhat
