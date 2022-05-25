@@ -2,7 +2,6 @@ using LinearAlgebra
 using Random
 using Statistics
 using Distributed
-using Dagger
 using FFTW
 using Convex
 using SCS
@@ -15,15 +14,31 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
-    x = Dict()
-    lambda = Dict()
-    for i=1:N
-        x[i] = zeros(d,1)
-        lambda[i] = zeros(d,1)
-    end
+    x = [zeros(d,1) for i=1:N]
+    lambda = [lambda[i] for i=1:N]
     
-    xfin, lambdafin = Dagger.@spawn rdmm_ls_util(
+    xfin, lambdafin = rdmm_ls_util(
         x, lambda, SA, Sb, N; numiters=maxiter)
+        
+    for k=1:maxiter
+        pieces = [zeros(d,1) for i=1:N,j=1:N]
+        
+        for i=1:N
+            x[i] = (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
+        end
+        
+        meanx =  mean(x)
+        
+        for i=1:N
+            for j=1:N
+                pieces[i,j] = SA[i]'*SA[i]*(x[j] - meanx)
+            end
+        end
+        
+        for i=1:N
+            lambda[i] = sum([pieces[i,j] for j=1:N])
+        end
+    end
     
     xstar = fetch(xfin)
     lambdastar = fetch(lambdafin)
@@ -32,7 +47,7 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     return xstar, lambdastar
 end
 
-function rdmm_ls_util(x, lambda, SA, Sb, N; numiters=1000)
+"""function rdmm_ls_util(x, lambda, SA, Sb, N; numiters=1000)
     if numiters == 0
         return x, lambda
     end
@@ -40,21 +55,21 @@ function rdmm_ls_util(x, lambda, SA, Sb, N; numiters=1000)
     newx = Dict()
     pieces = Dict()
     newlambda = Dict()
-    for i=1:N
-        newx[i] = Dagger.@spawn (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
-    end
-    meanx = Dagger.@spawn mean(newx)
+    for i=1:N"""
+        #newx[i] = (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
+    """end
+    meanx =  mean(newx)
     for i=1:N
         for j=1:N
-            pieces[i,j] = Dagger.@spawn SA[i]'*SA[i]*(newx[j] - meanx)
+            pieces[i,j] = SA[i]'*SA[i]*(newx[j] - meanx)
         end
     end
     for i=1:N
-        newlambda[i] = Dagger.@spawn sum([pieces[i,j] for j=1:N])
+        newlambda[i] = sum([pieces[i,j] for j=1:N])
     end
     
-    return Dagger.@spawn rdmm_ls_util(newx, newlambda, SA, Sb, N; numiters=numiters-1)
-end
+    return rdmm_ls_util(newx, newlambda, SA, Sb, N; numiters=numiters-1)
+end"""
 
 """
 """
@@ -69,10 +84,10 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     
     for k=1:maxiter
         for i=1:N
-            y[i] = Dagger.@spawn (SAt[i]'*SAt[i]+I(n)/N) \ (b/N-lambda[i])
+            y[i] = (SAt[i]'*SAt[i]+I(n)/N) \ (b/N-lambda[i])
         end
         for i=1:N
-            lambda[i] = Dagger.@spawn lambda[i]+mu*(A*A'+I(n)/N)*(y[i]-mean(y))
+            lambda[i] = lambda[i]+mu*(A*A'+I(n)/N)*(y[i]-mean(y))
         end
     end
     
@@ -111,7 +126,7 @@ function rdmm_quadreg(A, b, N, maxiter, mu; rflag=true)
         y = evaulate(yvar)
         
         # need Langarian
-        lambda[i] = Dagger.@spawn lambda[i]+mu*(A'*A+L*I(d))*(y-x)
+        lambda[i] = lambda[i]+mu*(A'*A+L*I(d))*(y-x)
     end
     
     xstar = fetch(x)
@@ -136,8 +151,8 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     
     for k=1:maxiter
         for i=1:N
-            z[i] = Dagger.@spawn -(SAhat[i]'*SAhat[i]) \ (lambda[i])
-            lambda[i] = Dagger.@spawn lambda[i]+mu*Ahat'*Ahat*(z[i]-mean(z))
+            z[i] = -(SAhat[i]'*SAhat[i]) \ (lambda[i])
+            lambda[i] = lambda[i]+mu*Ahat'*Ahat*(z[i]-mean(z))
         end
     end
     
