@@ -67,11 +67,12 @@ end"""
 """
 """
 function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
-    addprocs(N)
+    #addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
-    SAt = preprocess_ridge(A, N; rflag=rflag)
+    #SAt = preprocess_ridge(A, N; rflag=rflag)
+    SAt = [A']
     y = [zeros(n,1) for i=1:N]
     lambda = [zeros(n,1) for i=1:N]
     pieces = [zeros(d,1) for i=1:N,j=1:N]
@@ -104,24 +105,24 @@ end
 
 """
 """
-function rdmm_quadreg(A, b, N, maxiter, mu; rflag=true)
-    addprocs(N)
+function rdmm_qr(A, b, N, g, L, maxiter, mu; rflag=true)
+    #addprocs(N)
     
     n = size(A,1)
     d = size(A,2)
     
-    SA, Sb = preprocess_quadreg(A, b; rflag=true)
+    SA, Sb = preprocess_qr(A, b; rflag=true)
     x = zeros(d,1)
     y = zeros(d,1)
-    lambda = [zeros(d,1) for i=1:N]
+    lambda = zeros(d,1)
     
     for k=1:maxiter
         # temporarily implemented in convex while we search for a better solution
-        varx = Variable(d)
-        vary = Variable(d)
+        xvar = Variable(d)
+        yvar = Variable(d)
         
-        probx = minimize(0.5*norm(SA[1]*xvar-Sb[1])^2+0.5*g(xvar)-lambda'*xvar)
-        proby = minimize(0.5*norm(SA[1]*yvar-Sb[1])^2+0.5*g(yvar)-lambda'*yvar)
+        probx = minimize(0.5*square(norm(SA[1]*xvar-Sb[1],2))+0.5*g(xvar)-lambda'*xvar)
+        proby = minimize(0.5*square(norm(SA[1]*yvar-Sb[1],2))+0.5*g(yvar)-lambda'*yvar)
         
         solve!(probx, SCS.Optimizer(verbose=false))
         solve!(proby, SCS.Optimizer(verbose=false))
@@ -130,7 +131,7 @@ function rdmm_quadreg(A, b, N, maxiter, mu; rflag=true)
         y = evaulate(yvar)
         
         # need Langarian
-        lambda[i] = lambda[i]+mu*(A'*A+L*I(d))*(y-x)
+        lambda += (mu/k)*(A'*A+L*I(d))*(y-x)
     end
     
     #rmprocs(workers())
@@ -247,7 +248,7 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocess_quadreg(A, b; rflag=true)
+function preprocess_qr(A, b; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
