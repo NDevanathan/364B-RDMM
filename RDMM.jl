@@ -71,8 +71,7 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     n = size(A,1)
     d = size(A,2)
     
-    #SAt = preprocess_ridge(A, N; rflag=rflag)
-    SAt = [A'/sqrt(n)]
+    SAt = preprocess_ridge(A, N; rflag=rflag)
     y = [zeros(n,1) for i=1:N]
     lambda = [zeros(n,1) for i=1:N]
     pieces = [zeros(d,1) for i=1:N,j=1:N]
