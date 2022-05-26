@@ -130,8 +130,19 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     for k=1:maxiter
         for i=1:N
             z[i] = -(SAhat[i]'*SAhat[i]) \ (lambda[i])
-            lambda[i] = lambda[i]+mu*Ahat'*Ahat*(z[i]-mean(z))
         end
+    end
+    
+    meanz =  mean(z)
+        
+    for i=1:N
+        for j=1:N
+            pieces[i,j] = SAhat[i]'*SAhat[i]*(z[j] - meanz)
+        end
+    end
+        
+    for i=1:N
+        lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
     end
     
     #rmprocs(workers())
