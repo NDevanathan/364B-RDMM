@@ -19,19 +19,17 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     pieces = [zeros(d,1) for i=1:N,j=1:N]
         
     for k=1:maxiter
-        for i=1:N
+        Threads.@threads for i=1:N
             x[i] = (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[i])
         end
         
         meanx =  mean(x)
         
-        for i=1:N
+        Threads.@threads for i=1:N
             for j=1:N
                 pieces[i,j] = SA[i]'*SA[i]*(x[j] - meanx)
             end
-        end
-        
-        for i=1:N
+            
             lambda[i] += (mu/sqrt(k))*sum([pieces[i,j] for j=1:N])
         end
     end
