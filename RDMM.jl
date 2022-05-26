@@ -32,7 +32,7 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
         end
         
         for i=1:N
-            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
+            lambda[i] += (mu)*sum([pieces[i,j] for j=1:N])
         end
     end
     
