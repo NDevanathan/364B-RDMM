@@ -5,6 +5,7 @@ using Distributed
 using FFTW
 using Convex
 using SCS
+using Random
 
 """
 """
@@ -13,7 +14,7 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
-    x = [zeros(d,1) for i=1:N]
+    x = [rand(d,1) for i=1:N]
     lambda = [zeros(d,1) for i=1:N]
     pieces = [zeros(d,1) for i=1:N,j=1:N]
         
@@ -29,7 +30,7 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
                 pieces[i,j] = SA[i]'*SA[i]*(x[j] - meanx)
             end
             
-            lambda[i] += (mu/sqrt(k))*sum([pieces[i,j] for j=1:N])
+            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
         end
     end
     
