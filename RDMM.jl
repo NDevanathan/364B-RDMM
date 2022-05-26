@@ -72,7 +72,7 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     #SAt = preprocess_ridge(A, N; rflag=rflag)
-    SAt = [A']
+    SAt = [A'/sqrt(n)]
     y = [zeros(n,1) for i=1:N]
     lambda = [zeros(n,1) for i=1:N]
     pieces = [zeros(d,1) for i=1:N,j=1:N]
@@ -84,7 +84,7 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
         
         meany =  mean(y)
         
-        """for i=1:N
+        for i=1:N
             for j=1:N
                 pieces[i,j] = (SAt[i]'*SAt[i]+I(n)/N)*(y[j] - meany)
             end
@@ -92,11 +92,11 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
         
         for i=1:N
             lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
-        end"""
-        
-        for i=1:N
-            lambda[i] += (mu/k)*(A*A'+I(n)/N)*(y[i]-meany)
         end
+        
+        """for i=1:N
+            lambda[i] += (mu/k)*(A*A'+I(n)/N)*(y[i]-meany)
+        end"""
     end
     
     #rmprocs(workers())
@@ -128,14 +128,14 @@ function rdmm_qr(A, b, N, g, L, maxiter, mu; rflag=true)
         solve!(proby, SCS.Optimizer(verbose=false))
         
         x = evaluate(xvar)
-        y = evaulate(yvar)
+        y = evaluate(yvar)
         
         # need Langarian
         lambda += (mu/k)*(A'*A+L*I(d))*(y-x)
     end
     
     #rmprocs(workers())
-    return x[1], lambda[1]
+    return x, lambda[1]
 end
 
 """
