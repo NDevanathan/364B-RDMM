@@ -66,6 +66,8 @@ function rdmm_ls_regularized1(A, b, N, maxiter, rho; rflag=true)
         for i=1:N
             lambda[i] += rho*sum([pieces[i,j] for j=1:N])
         end
+        
+        z = zeros(d,1)
     end
     
     #rmprocs(workers())
@@ -98,6 +100,8 @@ function rdmm_ls_regularized2(A, b, N, maxiter, rho; rflag=true)
         for i=1:N
             lambda[i] += rho*sum([pieces[i,j] for j=1:N])
         end
+        
+        z = zeros(d,1)
     end
     
     #rmprocs(workers())
