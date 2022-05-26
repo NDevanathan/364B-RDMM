@@ -15,16 +15,12 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     
     SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
     x = [zeros(d,1) for i=1:N]
-    lambda = [lambda[i] for i=1:N]
-    
-    xfin, lambdafin = rdmm_ls_util(
-        x, lambda, SA, Sb, N; numiters=maxiter)
+    lambda = [zeros(d,1) for i=1:N]
+    pieces = [zeros(d,1) for i=1:N,j=1:N]
         
     for k=1:maxiter
-        pieces = [zeros(d,1) for i=1:N,j=1:N]
-        
         for i=1:N
-            x[i] = (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
+            x[i] = (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[i])
         end
         
         meanx =  mean(x)
@@ -36,15 +32,12 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
         end
         
         for i=1:N
-            lambda[i] = sum([pieces[i,j] for j=1:N])
+            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
         end
     end
     
-    xstar = fetch(xfin)
-    lambdastar = fetch(lambdafin)
-    
     #rmprocs(workers())
-    return xstar, lambdastar
+    return x[1], lambda[1]
 end
 
 """function rdmm_ls_util(x, lambda, SA, Sb, N; numiters=1000)
@@ -81,21 +74,32 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     SAt = preprocess_ridge(A, N; rflag=rflag)
     y = [zeros(n,1) for i=1:N]
     lambda = [zeros(n,1) for i=1:N]
+    pieces = [zeros(d,1) for i=1:N,j=1:N]
     
     for k=1:maxiter
         for i=1:N
             y[i] = (SAt[i]'*SAt[i]+I(n)/N) \ (b/N-lambda[i])
         end
+        
+        meany =  mean(y)
+        
+        """for i=1:N
+            for j=1:N
+                pieces[i,j] = (SAt[i]'*SAt[i]+I(n)/N)*(y[j] - meany)
+            end
+        end
+        
         for i=1:N
-            lambda[i] = lambda[i]+mu*(A*A'+I(n)/N)*(y[i]-mean(y))
+            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
+        end"""
+        
+        for i=1:N
+            lambda[i] += (mu/k)*(A*A'+I(n)/N)*(y[i]-meany)
         end
     end
     
-    ystar = fetch(y[1])
-    lambdastar = fetch(lambda[1])
-    
-    rmprocs(workers())
-    return A'*ystar/eta,lambdastar
+    #rmprocs(workers())
+    return A'*y[1]/eta,lambda[1]
 end
 
 """
@@ -129,11 +133,8 @@ function rdmm_quadreg(A, b, N, maxiter, mu; rflag=true)
         lambda[i] = lambda[i]+mu*(A'*A+L*I(d))*(y-x)
     end
     
-    xstar = fetch(x)
-    lambdastar = fetch(lambda[1])
-    
-    rmprocs(workers())
-    return xstar, lambdastar
+    #rmprocs(workers())
+    return x[1], lambda[1]
 end
 
 """
@@ -156,11 +157,8 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
         end
     end
     
-    zstar = fetch(z[1])
-    lambdastar = fetch(lambda[1])
-    
-    rmprocs(workers())
-    return zstar,lambdastar
+    #rmprocs(workers())
+    return z[1],lambda[1]
 end
 
 """
