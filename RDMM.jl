@@ -118,9 +118,9 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     Ahat = hcat(A, I(n))
-    SAhat = [Ahat]#preprocess_socp(Ahat,rflag=rflag)
+    SAhat = preprocess_socp(Ahat,rflag=rflag)
     z = [zeros(n,1) for i=1:N]
-    lambdavector = (A'*wy-wx)/N
+    lambdavector = Ahat'*(A'*wy-wx)/N
     lambda = [lambdavector for i=1:N]
     
     for k=1:maxiter
