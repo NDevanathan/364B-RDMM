@@ -240,7 +240,7 @@ function preprocess_ridge(A, N; rflag=true)
     SAt = []
     normfactor = rflag ? sqrt(d) : 1
     for indexcollection in dividedindices
-        push!(SAt, HDAt[indexcollection, :] / normfactor)
+        push!(SAt, HDAt[sort(indexcollection), :] / normfactor)
     end
     
     return SAt
