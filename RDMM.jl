@@ -40,6 +40,137 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     return mean(x), lambda[1]
 end
 
+function rdmm_ls_regularized1(A, b, N, maxiter, rho; rflag=true)
+    #addprocs(N)
+    n = size(A,1)
+    d = size(A,2)
+    
+    SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
+    x = [zeros(d,1) for i=1:N]
+    z = zeros(d,1)
+    lambda = [zeros(d,1) for i=1:N]
+    pieces = [zeros(d,1) for i=1:N,j=1:N]
+        
+    for k=1:maxiter
+        for i=1:N
+            x[i] = ((1+rho)*SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[i]+rho*SA[i]'*SA[i]*z)
+            z += (1/N)*(x[i] + (1/rho)*lambda[i])
+        end
+        
+        for i=1:N
+            for j=1:N
+                pieces[i,j] = SA[i]'*SA[i]*(x[j] - z)
+            end
+        end
+        
+        for i=1:N
+            lambda[i] += rho*sum([pieces[i,j] for j=1:N])
+        end
+    end
+    
+    #rmprocs(workers())
+    return mean(x), lambda[1]
+end
+
+function rdmm_ls_regularized2(A, b, N, maxiter, rho; rflag=true)
+    #addprocs(N)
+    n = size(A,1)
+    d = size(A,2)
+    
+    SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
+    x = [zeros(d,1) for i=1:N]
+    z = zeros(d,1)
+    lambda = [zeros(d,1) for i=1:N]
+    pieces = [zeros(d,1) for i=1:N,j=1:N]
+        
+    for k=1:maxiter
+        for i=1:N
+            x[i] = (SA[i]'*SA[i]+rho*I(d)) \ (SA[i]'*Sb[i]-lambda[i]+rho*z)
+            z += (1/N)*(x[i] + (1/rho)*lambda[i])
+        end
+        
+        for i=1:N
+            for j=1:N
+                pieces[i,j] = SA[i]'*SA[i]*(x[j] - z)
+            end
+        end
+        
+        for i=1:N
+            lambda[i] += rho*sum([pieces[i,j] for j=1:N])
+        end
+    end
+    
+    #rmprocs(workers())
+    return mean(x), lambda[1]
+end
+
+function rdmm_ls_regularized3(A, b, N, maxiter, rho; rflag=true)
+    #addprocs(N)
+    n = size(A,1)
+    d = size(A,2)
+    
+    SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
+    x = [zeros(d,1) for i=1:N]
+    meanx = zeros(d,1)
+    lambda = [zeros(d,1) for i=1:N]
+    pieces = [zeros(d,1) for i=1:N,j=1:N]
+        
+    for k=1:maxiter
+        for i=1:N
+            x[i] = (SA[i]'*SA[i]+rho*I(d)) \ (SA[i]'*Sb[i]-lambda[i]+rho*meanx)
+        end
+        
+        meanx = mean(x)
+        
+        for i=1:N
+            for j=1:N
+                pieces[i,j] = SA[i]'*SA[i]*(x[j] - meanx)
+            end
+        end
+        
+        for i=1:N
+            lambda[i] += rho*sum([pieces[i,j] for j=1:N])
+        end
+    end
+    
+    #rmprocs(workers())
+    return mean(x), lambda[1]
+end
+
+function rdmm_ls_regularized4(A, b, N, maxiter, rho; rflag=true)
+    #addprocs(N)
+    n = size(A,1)
+    d = size(A,2)
+    
+    SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
+    x = [zeros(d,1) for i=1:N]
+    meanx = zeros(d,1)
+    lambda = [zeros(d,1) for i=1:N]
+    pieces = [zeros(d,1) for i=1:N,j=1:N]
+        
+    for k=1:maxiter
+        for i=1:N
+            x[i] = ((1+rho)*SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[i]+rho*SA[i]'*SA[i]*meanx)
+        end
+        
+        meanx = mean(x)
+        
+        for i=1:N
+            for j=1:N
+                pieces[i,j] = SA[i]'*SA[i]*(x[j] - meanx)
+            end
+        end
+        
+        for i=1:N
+            lambda[i] += rho*sum([pieces[i,j] for j=1:N])
+        end
+    end
+    
+    #rmprocs(workers())
+    return mean(x), lambda[1]
+end
+
+
 
 """
 """
