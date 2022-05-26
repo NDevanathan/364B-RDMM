@@ -202,8 +202,8 @@ function preprocess_ls(A, b, N; rflag=true)
     HDA = A
     HDb = b
     if rflag
-        HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
-        HDb = FFTW.r2r(D*b, FFTW.DHT)
+        HDA = fft(D*A, 1)
+        HDb = fft(D*b)
     end
     
     SA = []
@@ -233,7 +233,7 @@ function preprocess_ridge(A, N; rflag=true)
     dividedindices, D = generatePD(d, N; rflag=rflag)
     HDAt = A'
     if rflag
-        HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
+        HDAt = fft(D*A', 1)
     end
     
     SAt = []
@@ -263,8 +263,8 @@ function preprocess_quadreg(A, b; rflag=true)
     HDA = A
     HDb = b
     if rflag
-        HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
-        HDb = FFTW.r2r(D*b, FFTW.DHT)
+        HDA = fft(D*A, 1)
+        HDb = fft(D*b)
     end
     
     SA = []
@@ -294,7 +294,7 @@ function preprocess_socp(Ahat; rflag=true)
     dividedindices, D = generatePD(n, N; rflag=rflag)
     HDAhat = Ahat
     if rflag
-        HDAhat = FFTW.r2r(D*Ahat, FFTW.DHT, 1)
+        HDAhat = fft(D*Ahat, 1)
     end
     
     SAhat = []
