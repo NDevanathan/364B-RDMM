@@ -122,7 +122,7 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     Ahat = vcat(A, I(n))
-    SAhat = preprocess_socp(Ahat)
+    SAhat = preprocess_socp(Ahat,rflag=rflag)
     z = [zeros(n,1) for i=1:N]
     lambdavector = (A'*wy-wx)/N
     lambda = [lambdavector for i=1:N]
@@ -130,7 +130,18 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     for k=1:maxiter
         for i=1:N
             z[i] = -(SAhat[i]'*SAhat[i]) \ (lambda[i])
-            lambda[i] = lambda[i]+mu*Ahat'*Ahat*(z[i]-mean(z))
+        end
+        
+        meanz =  mean(z)
+        
+        for i=1:N
+            for j=1:N
+                pieces[i,j] = SAhat[i]'*SAhat[i]*(x[j] - meanz)
+            end
+        end
+        
+        for i=1:N
+            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
         end
     end
     
