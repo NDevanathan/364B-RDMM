@@ -56,7 +56,7 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     
     for k=1:maxiter
         for i=1:N
-            y[i] = (SAt[i]'*SAt[i]+I(n)/N) \ (b/N-lambda[i])
+            y[i] = (SAt[i]'*SAt[i]/eta+I(n)/N) \ (b/N-lambda[i])
         end
         
         meany =  mean(y)
@@ -70,10 +70,6 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
         for i=1:N
             lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
         end
-        
-        """for i=1:N
-            lambda[i] += (mu/k)*(A*A'+I(n)/N)*(y[i]-meany)
-        end"""
     end
     
     #rmprocs(workers())
@@ -122,32 +118,32 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     n = size(A,1)
     d = size(A,2)
     
-    Ahat = vcat(A, I(n))
-    SAhat = preprocess_socp(Ahat)
+    Ahat = hcat(A, I(n))
+    SAhat = preprocess_socp(Ahat,rflag=rflag)
     z = [zeros(n,1) for i=1:N]
-    lambdavector = (A'*wy-wx)/N
+    lambdavector = Ahat'*(A'*wy-wx)/N
     lambda = [lambdavector for i=1:N]
     
     for k=1:maxiter
         for i=1:N
-            z[i] = -(SAhat[i]'*SAhat[i]) \ (lambda[i])
+            z[i] = -(SAhat[i]'*SAhat[i]) \ lambda[i]
         end
-    end
-    
-    meanz =  mean(z)
         
-    for i=1:N
-        for j=1:N
-            pieces[i,j] = SAhat[i]'*SAhat[i]*(z[j] - meanz)
+        meanz =  mean(z)
+        
+        for i=1:N
+            for j=1:N
+                pieces[i,j] = SAhat[i]'*SAhat[i]*(z[j] - meanz)
+            end
         end
-    end
         
-    for i=1:N
-        lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
+        for i=1:N
+            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
+        end
     end
     
     #rmprocs(workers())
-    return z[1],lambda[1]
+    return mean(z),lambda[1]
 end
 
 """
@@ -247,7 +243,7 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocess_quadreg(A, b; rflag=true)
+function preprocess_qr(A, b; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
