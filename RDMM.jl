@@ -37,7 +37,7 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     end
     
     #rmprocs(workers())
-    return x[1], lambda[1]
+    return mean(x), lambda[1]
 end
 
 
@@ -76,12 +76,12 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     end
     
     #rmprocs(workers())
-    return A'*y[1]/eta,lambda[1]
+    return A'*mean(y)/eta,lambda[1]
 end
 
 """
 """
-function rdmm_qr(A, b, N, g, L, maxiter, mu; rflag=true)
+function rdmm_qr(A, b, g, L, maxiter, mu; rflag=true)
     #addprocs(N)
     
     n = size(A,1)
@@ -111,13 +111,13 @@ function rdmm_qr(A, b, N, g, L, maxiter, mu; rflag=true)
     end
     
     #rmprocs(workers())
-    return x, lambda[1]
+    return (x,y)/2, lambda[1]
 end
 
 """
 """
 function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
-    addprocs(N)
+    #addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
