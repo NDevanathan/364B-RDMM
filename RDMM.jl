@@ -5,7 +5,6 @@ using Distributed
 using FFTW
 using Convex
 using SCS
-using Hadamard
 
 """
 """
@@ -187,10 +186,8 @@ function preprocess_ls(A, b, N; rflag=true)
     HDA = A
     HDb = b
     if rflag
-        #HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
-        #HDb = FFTW.r2r(D*b, FFTW.DHT)
-        HDA = hadamard(n)*D*A
-        HDb = hadamard(n)*D*b
+        HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
+        HDb = FFTW.r2r(D*b, FFTW.DHT)
     end
     
     SA = []
@@ -278,17 +275,17 @@ Outputs:
 """
 function preprocess_socp(Ahat; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
-    n = size(A, 1)
-    d = size(A, 2)
+    nplusd = size(Ahat, 1)
+    d = size(Ahat, 2)
     
-    dividedindices, D = generatePD(n, N; rflag=rflag)
+    dividedindices, D = generatePD(nplusd, N; rflag=rflag)
     HDAhat = Ahat
     if rflag
         HDAhat = FFTW.r2r(D*Ahat, FFTW.DHT, 1)
     end
     
     SAhat = []
-    normfactor = rflag ? sqrt(n) : 1
+    normfactor = rflag ? sqrt(nplusd) : 1
     for indexcollection in dividedindices
         push!(SAhat, HDAhat[indexcollection, :] / normfactor)
     end
