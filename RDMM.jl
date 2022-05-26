@@ -235,7 +235,7 @@ function preprocess_ridge(A, N; rflag=true)
     dividedindices, D = generatePD(d, N; rflag=rflag)
     HDAt = A'
     if rflag
-        HDAt = fft(D*A', 1)
+        HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
     end
     
     SAt = []
