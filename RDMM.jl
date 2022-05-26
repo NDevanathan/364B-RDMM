@@ -229,7 +229,7 @@ function preprocess_ridge(A, N; rflag=true)
 end
 
 """
-Utility function to preprocess A and b for RDMM Regularized LS
+Utility function to preprocess A and b for RDMM Quadratic w/ Regularizer
 Inputs:
     A - A matrix of size n by d
     b - A column vector of size n
@@ -243,7 +243,7 @@ function preprocess_qr(A, b; rflag=true)
     n = size(A, 1)
     d = size(A, 2)
     
-    dividedindices, D = generatePD(n, N; rflag=rflag)
+    dividedindices, D = generatePD(n, 2; rflag=rflag)
     HDA = A
     HDb = b
     if rflag
