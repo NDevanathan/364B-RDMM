@@ -195,8 +195,12 @@ function preprocess_ls(A, b, N; rflag=true)
     Sb = []
     normfactor = rflag ? sqrt(n) : 1
     for indexcollection in dividedindices
-        push!(SA, HDA[indexcollection, :] / normfactor)
-        push!(Sb, HDb[indexcollection, :] / normfactor)
+        P = zeros(n, n)
+        for index in indexcollection
+            P[index, index] = 1
+        end
+        push!(SA, P*HDA / normfactor)
+        push!(Sb, P*HDb / normfactor)
     end
     
     return SA, Sb
