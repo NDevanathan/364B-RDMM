@@ -211,13 +211,13 @@ function preprocess_ridge(A, N; rflag=true)
     dividedindices, D = generatePD(d, N; rflag=rflag)
     HDAt = A'
     if rflag
-        HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
+        HDAt = fft(D*A', 1)
     end
     
     SAt = []
     normfactor = rflag ? sqrt(d) : 1
     for indexcollection in dividedindices
-        push!(SAt, HDAt[sort(indexcollection), :] / normfactor)
+        push!(SAt, HDAt[indexcollection, :] / normfactor)
     end
     
     return SAt
