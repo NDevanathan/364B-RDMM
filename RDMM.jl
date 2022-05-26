@@ -5,6 +5,7 @@ using Distributed
 using FFTW
 using Convex
 using SCS
+using Hadamard
 
 """
 """
@@ -190,8 +191,10 @@ function preprocess_ls(A, b, N; rflag=true)
     HDA = A
     HDb = b
     if rflag
-        HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
-        HDb = FFTW.r2r(D*b, FFTW.DHT)
+        #HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
+        #HDb = FFTW.r2r(D*b, FFTW.DHT)
+        HDA = hadamard(n)*D*A
+        HDb = hadamard(n)*D*b
     end
     
     SA = []
