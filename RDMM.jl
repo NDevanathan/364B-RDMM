@@ -9,7 +9,6 @@ using SCS
 """
 """
 function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
-    #addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
@@ -34,14 +33,12 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
         end
     end
     
-    #rmprocs(workers())
     return mean(x), lambda[1]
 end
 
 """
 """
 function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
-    #addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
@@ -51,66 +48,54 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     pieces = [zeros(d,1) for i=1:N,j=1:N]
     
     for k=1:maxiter
-        for i=1:N
+        Threads.@threads for i=1:N
             y[i] = (SAt[i]'*SAt[i]/eta+I(n)/N) \ (b/N-lambda[i])
         end
         
         meany =  mean(y)
         
-        for i=1:N
+        Threads.@threads for i=1:N
             for j=1:N
                 pieces[i,j] = (SAt[i]'*SAt[i]+I(n)/(N^2))*(y[j] - meany)
             end
-        end
-        
-        for i=1:N
+            
             lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
         end
     end
     
-    #rmprocs(workers())
     return A'*mean(y)/eta,lambda[1]
 end
 
 """
 """
 function rdmm_qr(A, b, g, L, maxiter, mu; rflag=true)
-    #addprocs(N)
-    
     n = size(A,1)
     d = size(A,2)
     
     SA, Sb = preprocess_qr(A, b; rflag=true)
-    x = zeros(d,1)
-    y = zeros(d,1)
+    x = [zeros(d,1), zeros(d,1)]
     lambda = zeros(d,1)
     
     for k=1:maxiter
         # temporarily implemented in convex while we search for a better solution
-        xvar = Variable(d)
-        yvar = Variable(d)
+        Threads.@threads for i=1:2
+            xvar = Variable(d)
+            
+            probx = minimize(0.5*square(norm(SA[1]*xvar-Sb[1],2))+0.5*g(xvar)-lambda'*xvar)
+            solve!(probx, SCS.Optimizer(verbose=false))
+            
+            x[i] = evaluate(xvar)
+        end
         
-        probx = minimize(0.5*square(norm(SA[1]*xvar-Sb[1],2))+0.5*g(xvar)-lambda'*xvar)
-        proby = minimize(0.5*square(norm(SA[1]*yvar-Sb[1],2))+0.5*g(yvar)-lambda'*yvar)
-        
-        solve!(probx, SCS.Optimizer(verbose=false))
-        solve!(proby, SCS.Optimizer(verbose=false))
-        
-        x = evaluate(xvar)
-        y = evaluate(yvar)
-        
-        # need Langarian
-        lambda += (mu/k)*(A'*A+L*I(d))*(y-x)
+        lambda += (mu/k)*(A'*A+L*I(d))*(x[2]-x[1])
     end
     
-    #rmprocs(workers())
-    return (x,y)/2, lambda[1]
+    return (x[1]+x[2])/2, lambda
 end
 
 """
 """
 function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
-    #addprocs(N)
     n = size(A,1)
     d = size(A,2)
     
@@ -122,24 +107,21 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     pieces = [zeros(d,1) for i=1:N,j=1:N]
     
     for k=1:maxiter
-        for i=1:N
+        Threads.@threads for i=1:N
             z[i] = -(SAhat[i]'*SAhat[i]) \ lambda[i]
         end
         
         meanz =  mean(z)
         
-        for i=1:N
+        Threads.@threads for i=1:N
             for j=1:N
                 pieces[i,j] = SAhat[i]'*SAhat[i]*(z[j] - meanz)
             end
-        end
-        
-        for i=1:N
+            
             lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
         end
     end
     
-    #rmprocs(workers())
     return mean(z),lambda[1]
 end
 
