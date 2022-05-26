@@ -199,8 +199,12 @@ function preprocess_ls(A, b, N; rflag=true)
     end
     
     dividedindices, D = generatePD(n, N; rflag=rflag)
-    HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
-    HDb = FFTW.r2r(D*b, FFTW.DHT)
+    HDA = A
+    HDb = b
+    if rflag
+        HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
+        HDb = FFTW.r2r(D*b, FFTW.DHT)
+    end
     
     SA = []
     Sb = []
@@ -227,7 +231,10 @@ function preprocess_ridge(A, N; rflag=true)
     d = size(A, 2)
     
     dividedindices, D = generatePD(d, N; rflag=rflag)
-    HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
+    HDAt = A'
+    if rflag
+        HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
+    end
     
     SAt = []
     for indexcollection in dividedindices
@@ -253,8 +260,12 @@ function preprocess_quadreg(A, b; rflag=true)
     d = size(A, 2)
     
     dividedindices, D = generatePD(n, N; rflag=rflag)
-    HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
-    HDb = FFTW.r2r(D*b, FFTW.DHT)
+    HDA = A
+    HDb = b
+    if rflag
+        HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
+        HDb = FFTW.r2r(D*b, FFTW.DHT)
+    end
     
     SA = []
     Sb = []
@@ -281,7 +292,10 @@ function preprocess_socp(Ahat; rflag=true)
     d = size(A, 2)
     
     dividedindices, D = generatePD(n, N; rflag=rflag)
-    HDAhat = FFTW.r2r(D*Ahat, FFTW.DHT, 1)
+    HDAhat = Ahat
+    if rflag
+        HDAhat = FFTW.r2r(D*Ahat, FFTW.DHT, 1)
+    end
     
     SAhat = []
     for indexcollection in dividedindices
