@@ -86,7 +86,7 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
         
         for i=1:N
             for j=1:N
-                pieces[i,j] = (SAt[i]'*SAt[i]+I(n)/N)*(y[j] - meany)
+                pieces[i,j] = (SAt[i]'*SAt[i]+I(n)/(N^2))*(y[j] - meany)
             end
         end
         
