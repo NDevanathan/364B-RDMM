@@ -203,15 +203,16 @@ function preprocess_ls(A, b, N; rflag=true)
     HDA = A
     HDb = b
     if rflag
-        HDA = fft(D*A, 1)
-        HDb = fft(D*b)
+        HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
+        HDb = FFTW.r2r(D*b, FFTW.DHT)
     end
     
     SA = []
     Sb = []
+    normfactor = rflag ? sqrt(n) : 1
     for indexcollection in dividedindices
-        push!(SA, HDA[indexcollection, :] / sqrt(n))
-        push!(Sb, HDb[indexcollection, :] / sqrt(n))
+        push!(SA, HDA[indexcollection, :] / normfactor)
+        push!(Sb, HDb[indexcollection, :] / normfactor)
     end
     
     return SA, Sb
@@ -234,12 +235,13 @@ function preprocess_ridge(A, N; rflag=true)
     dividedindices, D = generatePD(d, N; rflag=rflag)
     HDAt = A'
     if rflag
-        HDAt = fft(D*A', 1)
+        HDAt = FFTW.r2r(D*A', FFTW.DHT, 1)
     end
     
     SAt = []
+    normfactor = rflag ? sqrt(d) : 1
     for indexcollection in dividedindices
-        push!(SAt, HDAt[indexcollection, :] / sqrt(n))
+        push!(SAt, HDAt[indexcollection, :] / normfactor)
     end
     
     return SAt
@@ -255,7 +257,7 @@ Outputs:
     SA - List of all S_i*A
     Sb - List of all S_i*b.
 """
-function preprocess_qr(A, b; rflag=true)
+function preprocess_quadreg(A, b; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
     n = size(A, 1)
     d = size(A, 2)
@@ -264,15 +266,16 @@ function preprocess_qr(A, b; rflag=true)
     HDA = A
     HDb = b
     if rflag
-        HDA = fft(D*A, 1)
-        HDb = fft(D*b)
+        HDA = FFTW.r2r(D*A, FFTW.DHT, 1)
+        HDb = FFTW.r2r(D*b, FFTW.DHT)
     end
     
     SA = []
     Sb = []
+    normfactor = rflag ? sqrt(n) : 1
     for indexcollection in dividedindices
-        push!(SA, HDA[indexcollection, :] / sqrt(n))
-        push!(Sb, HDb[indexcollection, :] / sqrt(n))
+        push!(SA, HDA[indexcollection, :] / normfactor)
+        push!(Sb, HDb[indexcollection, :] / normfactor)
     end
     
     return SA, Sb
@@ -295,13 +298,13 @@ function preprocess_socp(Ahat; rflag=true)
     dividedindices, D = generatePD(n, N; rflag=rflag)
     HDAhat = Ahat
     if rflag
-        HDAhat = fft(D*Ahat, 1)
+        HDAhat = FFTW.r2r(D*Ahat, FFTW.DHT, 1)
     end
     
     SAhat = []
+    normfactor = rflag ? sqrt(n) : 1
     for indexcollection in dividedindices
-        push!(SAhat, HDAhat[indexcollection, :] / 
-            sqrt(n))
+        push!(SAhat, HDAhat[indexcollection, :] / normfactor)
     end
     
     return SAhat
