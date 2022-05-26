@@ -40,29 +40,6 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     return x[1], lambda[1]
 end
 
-"""function rdmm_ls_util(x, lambda, SA, Sb, N; numiters=1000)
-    if numiters == 0
-        return x, lambda
-    end
-    
-    newx = Dict()
-    pieces = Dict()
-    newlambda = Dict()
-    for i=1:N"""
-        #newx[i] = (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[k][i])
-    """end
-    meanx =  mean(newx)
-    for i=1:N
-        for j=1:N
-            pieces[i,j] = SA[i]'*SA[i]*(newx[j] - meanx)
-        end
-    end
-    for i=1:N
-        newlambda[i] = sum([pieces[i,j] for j=1:N])
-    end
-    
-    return rdmm_ls_util(newx, newlambda, SA, Sb, N; numiters=numiters-1)
-end"""
 
 """
 """
