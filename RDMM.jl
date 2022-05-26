@@ -275,17 +275,17 @@ Outputs:
 """
 function preprocess_socp(Ahat; rflag=true)
     # TO DO: Check to make sure we don't need n >= 2*d
-    n = size(A, 1)
-    d = size(A, 2)
+    nplusd = size(Ahat, 1)
+    d = size(Ahat, 2)
     
-    dividedindices, D = generatePD(n, N; rflag=rflag)
+    dividedindices, D = generatePD(nplusd, N; rflag=rflag)
     HDAhat = Ahat
     if rflag
         HDAhat = FFTW.r2r(D*Ahat, FFTW.DHT, 1)
     end
     
     SAhat = []
-    normfactor = rflag ? sqrt(n) : 1
+    normfactor = rflag ? sqrt(nplusd) : 1
     for indexcollection in dividedindices
         push!(SAhat, HDAhat[indexcollection, :] / normfactor)
     end
