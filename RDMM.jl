@@ -138,7 +138,7 @@ Outputs:
 """
 function generatePD(n, N; rflag=true)
     dividedindices = rflag ? Iterators.partition(randperm(n), Int(ceil(n/N))) :
-        Iterators.partition(collect(1:n), Int(ceil(n/N))) 
+        Iterators.partition(collect(1:n), Int(ceil(n/N)))
     D = rflag ? Diagonal(sign.(rand(n) .- 0.5)) : I(n)
     return dividedindices, D
 end
