@@ -7,6 +7,7 @@ using Convex
 using SCS
 using Random
 
+
 """
 """
 function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
@@ -14,20 +15,29 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
+    AtStSA = [zeros(d,d) for i=1:N]
+    invAtStSA = [zeros(d,d) for i=1:N]
+    AtStSb = [zeros(d,1) for i=1:N]
+    Threads.@threads for i=1:N
+        AtStSA[i] = SA[i]'*SA[i]
+        invAtStSA[i] = inv(AtStSA[i])
+        AtStSb[i] = SA[i]'*Sb[i]
+    end
+    
     x = [zeros(d,1) for i=1:N]
     lambda = [zeros(d,1) for i=1:N]
     pieces = [zeros(d,1) for i=1:N,j=1:N]
         
     for k=1:maxiter
         Threads.@threads for i=1:N
-            x[i] = (SA[i]'*SA[i]) \ (SA[i]'*Sb[i]-lambda[i])
+            x[i] = invAtStSA[i]*(AtStSb[i]-lambda[i])
         end
         
         meanx =  mean(x)
         
         Threads.@threads for i=1:N
             for j=1:N
-                pieces[i,j] = SA[j]'*SA[j]*(x[i] - meanx)
+                pieces[i,j] = AtStSA[j]*(x[i] - meanx)
             end
             
             lambda[i] += (mu/sqrt(k))*sum([pieces[i,j] for j=1:N])
@@ -44,20 +54,28 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SAt = preprocess_ridge(A, N; rflag=rflag)
+    ASStAt = [zeros(n,n) for i=1:N]
+    invASStAt = [zeros(n,n) for i=1:N]
+    Threads.@threads for i=1:N
+        trueASStAt = SAt[i]'*SAt[i]
+        ASStAt[i] = trueASStAt + I(n)/(N^2)
+        invASStAt[i] = inv(trueASStAt/eta + I(n)/N)
+    end
+    
     y = [zeros(n,1) for i=1:N]
     lambda = [zeros(n,1) for i=1:N]
     pieces = [zeros(n,1) for i=1:N,j=1:N]
     
     for k=1:maxiter
         Threads.@threads for i=1:N
-            y[i] = (SAt[i]'*SAt[i]/eta+I(n)/N) \ (b/N-lambda[i])
+            y[i] = invASStAt[i]*(b/N-lambda[i])
         end
         
         meany =  mean(y)
         
         Threads.@threads for i=1:N
             for j=1:N
-                pieces[i,j] = (SAt[j]'*SAt[j]+I(n)/(N^2))*(y[i] - meany)
+                pieces[i,j] = ASStAt[j]*(y[i] - meany)
             end
             
             lambda[i] += (mu/sqrt(k))*sum([pieces[i,j] for j=1:N])
@@ -74,6 +92,13 @@ function rdmm_qr(A, b, g, L, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_qr(A, b; rflag=true)
+    
+    # Need to add this stuff after parallelization. This is needed for the "pieces" approach
+    #AtStSA = [zeros(d,d) for i=1:2]
+    #Threads.@threads for i=1:2
+    #    AtStSA[i] = SA[i]'*SA[i]
+    #end
+    
     x = zeros(d,1)
     y = zeros(d,1)
     lambda = zeros(d,1)
@@ -105,6 +130,13 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     
     Ahat = vcat(A, I(d))
     SAhat = preprocess_socp(Ahat,rflag=rflag)
+    AhattStSAhat = [zeros(d,d) for i=1:N]
+    invAhattStSAhat = [zeros(d,d) for i=1:N]
+    Threads.@threads for i=1:N
+        AhattStSAhat[i] = SAhat[i]'*SAhat[i]
+        invAhattStSAhat[i] = inv(AhattStSAhat[i])
+    end
+    
     z = [zeros(n,1) for i=1:N]
     lambdavector = (A'*wy-wx)/N
     lambda = [lambdavector for i=1:N]
@@ -112,14 +144,14 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
     
     for k=1:maxiter
         Threads.@threads for i=1:N
-            z[i] = -(SAhat[i]'*SAhat[i]) \ lambda[i]
+            z[i] = -invAhattStSAhat*lambda[i]
         end
         
         meanz =  mean(z)
         
         Threads.@threads for i=1:N
             for j=1:N
-                pieces[i,j] = SAhat[j]'*SAhat[j]*(z[i] - meanz)
+                pieces[i,j] = AhattStSAhat*(z[i] - meanz)
             end
             
             lambda[i] += (mu/sqrt(k))*sum([pieces[i,j] for j=1:N])
