@@ -8,8 +8,22 @@ using SCS
 using Random
 
 """
+Algorithm 1 from (Cand`es, Jiang, Pilanci, 2021). Utilizes RDMM to solve a
+least squares problem of the form ||Ax-b||_2^2
+Inputs:
+    A - Data matrix
+    b - Data vector
+    N - Number of agents
+    maxiter - number of RDMM iterations to perform
+    mu - step size (best to just leave as is unless you really know to use something else)
+    rflag - determines whether to use randomized preprocessing. Without rflag=true,
+            this function utilizes standard distributed ADMM instead of RDMM
+    
+Outputs:
+    mean(x) - optimal primal variable for the least squares problem
+    lambda - final dual coefficients for distributed problem
 """
-function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
+function rdmm_ls(A, b, N, maxiter; mu=1, rflag=true)
     n = size(A,1)
     d = size(A,2)
     
@@ -34,12 +48,27 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
         end
     end
     
-    return mean(x), lambda[1]
+    return mean(x), lambda
 end
 
 """
+Algorithm 2 from (Cand`es, Jiang, Pilanci, 2021). Utilizes RDMM to solve a
+regularized least squares problem of the form 1/2*||Ax-b||_2^2 + eta/2*||x||_2^2
+Inputs:
+    A - Data matrix
+    b - Data vector
+    eta - regularization constant
+    N - Number of agents
+    maxiter - number of RDMM iterations to perform
+    mu - step size (best to just leave as is unless you really know to use something else)
+    rflag - determines whether to use randomized preprocessing. Without rflag=true,
+            this function utilizes standard distributed ADMM instead of RDMM
+    
+Outputs:
+    A'*mean(y)/eta - optimal primal variable for the least squares problem
+    lambda - final dual coefficients for distributed problem
 """
-function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
+function rdmm_ridge(A, b, eta, N, maxiter; mu=1, rflag=true)
     n = size(A,1)
     d = size(A,2)
     
@@ -64,12 +93,29 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
         end
     end
     
-    return A'*mean(y)/eta,lambda[1]
+    return A'*mean(y)/eta,lambda
 end
 
 """
+Algorithm 3 from (Cand`es, Jiang, Pilanci, 2021). Utilizes RDMM to solve a
+quadratic problem with an L-smooth regularizer of the form 1/2*||Ax-b||_2^2+g(x)
+Note: This problem only supports two workers as it isn't guaranteed to converge with more
+Inputs:
+    A - Data matrix
+    b - Data vector
+    g - L-smooth regularizer. Must be continuously differentiable, twice differentiable,
+        and the derivative must be Lipschitz continuous with Lipschitz constant L.
+    L - the Lipschitz constant for the derivative of g. Does not have to be tight.
+    maxiter - number of RDMM iterations to perform
+    mu - step size (best to just leave as is unless you really know to use something else)
+    rflag - determines whether to use randomized preprocessing. Without rflag=true,
+            this function utilizes standard distributed ADMM instead of RDMM
+    
+Outputs:
+    (x+y)/2 - optimal primal variable for the least squares problem
+    lambda - final dual coefficients for distributed problem
 """
-function rdmm_qr(A, b, g, L, maxiter, mu; rflag=true)
+function rdmm_qr(A, b, g, L, maxiter; mu=1, rflag=true)
     n = size(A,1)
     d = size(A,2)
     
@@ -98,8 +144,26 @@ function rdmm_qr(A, b, g, L, maxiter, mu; rflag=true)
 end
 
 """
+Algorithm 4 from (Cand`es, Jiang, Pilanci, 2021). Utilizes RDMM to minimize equation (15).
+This was implemented mainly for testing and also completeness. It solves a sub-problem
+required in iterations of a splitting cone solver for general cone problems. The 
+problem is of the form 1/2*||Az-(A^T)^(-1)wx-wy)||_2^2 + 1/2*||z||_2^2 where (A^T)^(-1)
+is the pseudo inverse of A transpose.
+Inputs:
+    A - Data matrix
+    wy - Data vector
+    wx - Data vector
+    N - Number of agents
+    maxiter - number of RDMM iterations to perform
+    mu - step size (best to just leave as is unless you really know to use something else)
+    rflag - determines whether to use randomized preprocessing. Without rflag=true,
+            this function utilizes standard distributed ADMM instead of RDMM
+    
+Outputs:
+    mean(z) - optimal primal variable for the least squares problem
+    lambda - final dual coefficients for distributed problem
 """
-function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
+function rdmm_socp(A, wy, wx, N, maxiter; mu=1, rflag=true)
     n = size(A,1)
     d = size(A,2)
     
@@ -126,7 +190,7 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
         end
     end
     
-    return mean(z),lambda[1]
+    return mean(z),lambda
 end
 
 """
