@@ -27,10 +27,10 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
         
         Threads.@threads for i=1:N
             for j=1:N
-                pieces[i,j] = SA[i]'*SA[i]*(x[j] - meanx)
+                pieces[i,j] = SA[j]'*SA[j]*(x[i] - meanx)
             end
             
-            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
+            lambda[i] += (mu/sqrt(k))*sum([pieces[i,j] for j=1:N])
         end
     end
     
@@ -46,7 +46,7 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
     SAt = preprocess_ridge(A, N; rflag=rflag)
     y = [zeros(n,1) for i=1:N]
     lambda = [zeros(n,1) for i=1:N]
-    pieces = [zeros(d,1) for i=1:N,j=1:N]
+    pieces = [zeros(n,1) for i=1:N,j=1:N]
     
     for k=1:maxiter
         Threads.@threads for i=1:N
@@ -57,10 +57,10 @@ function rdmm_ridge(A, b, eta, N, maxiter, mu; rflag=true)
         
         Threads.@threads for i=1:N
             for j=1:N
-                pieces[i,j] = (SAt[i]'*SAt[i]+I(n)/(N^2))*(y[j] - meany)
+                pieces[i,j] = (SAt[j]'*SAt[j]+I(n)/(N^2))*(y[i] - meany)
             end
             
-            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
+            lambda[i] += (mu/sqrt(k))*sum([pieces[i,j] for j=1:N])
         end
     end
     
@@ -88,7 +88,7 @@ function rdmm_qr(A, b, g, L, maxiter, mu; rflag=true)
             x[i] = evaluate(xvar)
         end
         
-        lambda += (mu/k)*(A'*A+L*I(d))*(x[2]-x[1])
+        lambda += (mu/sqrt(k))*(A'*A+L*I(d))*(x[2]-x[1])
     end
     
     return (x[1]+x[2])/2, lambda
@@ -116,10 +116,10 @@ function rdmm_socp(A, wy, wx, N, maxiter, mu; rflag=true)
         
         Threads.@threads for i=1:N
             for j=1:N
-                pieces[i,j] = SAhat[i]'*SAhat[i]*(z[j] - meanz)
+                pieces[i,j] = SAhat[j]'*SAhat[j]*(z[i] - meanz)
             end
             
-            lambda[i] += (mu/k)*sum([pieces[i,j] for j=1:N])
+            lambda[i] += (mu/sqrt(k))*sum([pieces[i,j] for j=1:N])
         end
     end
     
