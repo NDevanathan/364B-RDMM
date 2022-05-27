@@ -14,7 +14,7 @@ function rdmm_ls(A, b, N, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_ls(A, b, N; rflag=rflag)
-    x = [rand(d,1) for i=1:N]
+    x = [zeros(d,1) for i=1:N]
     lambda = [zeros(d,1) for i=1:N]
     pieces = [zeros(d,1) for i=1:N,j=1:N]
         
@@ -74,24 +74,27 @@ function rdmm_qr(A, b, g, L, maxiter, mu; rflag=true)
     d = size(A,2)
     
     SA, Sb = preprocess_qr(A, b; rflag=true)
-    x = [zeros(d,1), zeros(d,1)]
+    x = zeros(d,1)
+    y = zeros(d,1)
     lambda = zeros(d,1)
     
     for k=1:maxiter
         # temporarily implemented in convex while we search for a better solution
-        Threads.@threads for i=1:2
-            xvar = Variable(d)
-            
-            probx = minimize(0.5*square(norm(SA[1]*xvar-Sb[1],2))+0.5*g(xvar)-lambda'*xvar)
-            solve!(probx, SCS.Optimizer(verbose=false))
-            
-            x[i] = evaluate(xvar)
-        end
+        xvar = Variable(d)
+        yvar = Variable(d)
         
-        lambda += (mu/sqrt(k))*(A'*A+L*I(d))*(x[2]-x[1])
+        probx = minimize(0.5*square(norm(SA[1]*xvar-Sb[1],2))+0.5*g(xvar)-lambda'*xvar)
+        proby = minimize(0.5*square(norm(SA[2]*yvar-Sb[2],2))+0.5*g(yvar)+lambda'*yvar)
+        solve!(probx, SCS.Optimizer(verbose=false))
+        solve!(proby, SCS.Optimizer(verbose=false))
+        
+        x = evaluate(xvar)
+        y = evaluate(yvar)
+        
+        lambda += (mu/sqrt(k))*(A'*A+L*I(d))*(y-x)
     end
     
-    return (x[1]+x[2])/2, lambda
+    return (x+y)/2, lambda
 end
 
 """
