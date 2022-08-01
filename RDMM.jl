@@ -1,7 +1,6 @@
 using LinearAlgebra
 using Random
 using Statistics
-using Distributed
 using FFTW
 using Convex
 using SCS
@@ -16,15 +15,20 @@ Inputs:
     b - Data vector
     N - Number of agents
     maxiter - number of RDMM iterations to perform
+    abserr - desired absolute difference in norm of mean(x) between iterations.
+    relerr - desired relative difference in norm of mean(x) between iterations. If the
+             difference in norms is less than the sum of absolute and relative error, the
+             function stops iterating and returns the current point.
     mu - step size (best to just leave as is unless you really know to use something else)
     rflag - determines whether to use randomized preprocessing. Without rflag=true,
             this function utilizes standard distributed ADMM instead of RDMM
+    ret_lambda - boolean to determine if lambda is returned
     
 Outputs:
     mean(x) - optimal primal variable for the least squares problem
     lambda - final dual coefficients for distributed problem
 """
-function rdmm_ls(A, b, N, maxiter; mu=1, rflag=true)
+function rdmm_ls(A, b, N; maxiter=100, abserr=0.001, relerr=0.01, mu=1, rflag=true, ret_lambda = false)
     n = size(A,1)
     d = size(A,2)
     
@@ -38,13 +42,22 @@ function rdmm_ls(A, b, N, maxiter; mu=1, rflag=true)
         AtStSb[i] = SA[i]'*Sb[i]
     end
     
+    error = abserr + relerr * norm(b)
+    
     x = [zeros(d,1) for i=1:N]
+    xold = zeros(d,1)
     lambda = [zeros(d,1) for i=1:N]
     pieces = [zeros(d,1) for i=1:N,j=1:N]
         
     for k=1:maxiter
+        xold = mean(x)
+        
         Threads.@threads for i=1:N
             x[i] = invAtStSA[i]*(AtStSb[i]-lambda[i])
+        end
+        
+        if norm(mean(x)-xold) <= error
+            break
         end
         
         meanx =  mean(x)
@@ -58,7 +71,10 @@ function rdmm_ls(A, b, N, maxiter; mu=1, rflag=true)
         end
     end
     
-    return mean(x), lambda
+    if ret_lambda
+        return mean(x), lambda
+    end
+    return mean(x)
 end
 
 """
@@ -70,15 +86,20 @@ Inputs:
     eta - regularization constant
     N - Number of agents
     maxiter - number of RDMM iterations to perform
+    abserr - desired absolute difference in norm of mean(x) between iterations.
+    relerr - desired relative difference in norm of mean(x) between iterations. If the
+             difference in norms is less than the sum of absolute and relative error, the
+             function stops iterating and returns the current point.
     mu - step size (best to just leave as is unless you really know to use something else)
     rflag - determines whether to use randomized preprocessing. Without rflag=true,
             this function utilizes standard distributed ADMM instead of RDMM
+    ret_lambda - boolean to determine if lambda is returned
     
 Outputs:
     A'*mean(y)/eta - optimal primal variable for the least squares problem
     lambda - final dual coefficients for distributed problem
 """
-function rdmm_ridge(A, b, eta, N, maxiter; mu=1, rflag=true)
+function rdmm_ridge(A, b, eta, N; maxiter=100, abserr=0.001, relerr=0.01, mu=1, rflag=true, ret_lambda = false)
     n = size(A,1)
     d = size(A,2)
     
@@ -91,13 +112,22 @@ function rdmm_ridge(A, b, eta, N, maxiter; mu=1, rflag=true)
         invASStAt[i] = inv(trueASStAt/eta + I(n)/N)
     end
     
+    error = abserr + relerr * norm(b)
+    
     y = [zeros(n,1) for i=1:N]
+    yold = zeros(n,1)
     lambda = [zeros(n,1) for i=1:N]
     pieces = [zeros(n,1) for i=1:N,j=1:N]
     
     for k=1:maxiter
+        yold = mean(y)
+    
         Threads.@threads for i=1:N
             y[i] = invASStAt[i]*(b/N-lambda[i])
+        end
+        
+        if norm(mean(y)-yold) <= error
+            break
         end
         
         meany =  mean(y)
@@ -111,7 +141,10 @@ function rdmm_ridge(A, b, eta, N, maxiter; mu=1, rflag=true)
         end
     end
     
-    return A'*mean(y)/eta,lambda
+    if ret_lambda
+        return A'*mean(y)/eta,lambda
+    end
+    return A'*mean(y)/eta
 end
 
 """
@@ -125,15 +158,20 @@ Inputs:
         and the derivative must be Lipschitz continuous with Lipschitz constant L.
     L - the Lipschitz constant for the derivative of g. Does not have to be tight.
     maxiter - number of RDMM iterations to perform
+    abserr - desired absolute difference in norm of mean(x) between iterations.
+    relerr - desired relative difference in norm of mean(x) between iterations. If the
+             difference in norms is less than the sum of absolute and relative error, the
+             function stops iterating and returns the current point.
     mu - step size (best to just leave as is unless you really know to use something else)
     rflag - determines whether to use randomized preprocessing. Without rflag=true,
             this function utilizes standard distributed ADMM instead of RDMM
+    ret_lambda - boolean to determine if lambda is returned
     
 Outputs:
     (x+y)/2 - optimal primal variable for the least squares problem
     lambda - final dual coefficients for distributed problem
 """
-function rdmm_qr(A, b, g, L, maxiter; mu=1, rflag=true)
+function rdmm_qr(A, b, g, L; maxiter=100, abserr=0.001, relerr=0.01, mu=1, rflag=true, ret_lambda = false)
     n = size(A,1)
     d = size(A,2)
     
@@ -145,11 +183,16 @@ function rdmm_qr(A, b, g, L, maxiter; mu=1, rflag=true)
     #    AtStSA[i] = SA[i]'*SA[i]
     #end
     
+    error = abserr + relerr * norm(b)
+    
     x = zeros(d,1)
     y = zeros(d,1)
     lambda = zeros(d,1)
     
     for k=1:maxiter
+        xold = x
+        yold = y
+        
         # temporarily implemented in convex while we search for a better solution
         xvar = Variable(d)
         yvar = Variable(d)
@@ -162,10 +205,17 @@ function rdmm_qr(A, b, g, L, maxiter; mu=1, rflag=true)
         x = evaluate(xvar)
         y = evaluate(yvar)
         
+        if norm((x+y-xold-yold)/2) <= error
+            break
+        end
+        
         lambda += (mu/sqrt(k))*(A'*A+L*I(d))*(y-x)
     end
     
-    return (x+y)/2, lambda
+    if ret_lambda
+        return (x+y)/2, lambda
+    end
+    return (x+y)/2
 end
 
 """
@@ -180,15 +230,20 @@ Inputs:
     wx - Data vector
     N - Number of agents
     maxiter - number of RDMM iterations to perform
+    abserr - desired absolute difference in norm of mean(x) between iterations.
+    relerr - desired relative difference in norm of mean(x) between iterations. If the
+             difference in norms is less than the sum of absolute and relative error, the
+             function stops iterating and returns the current point.
     mu - step size (best to just leave as is unless you really know to use something else)
     rflag - determines whether to use randomized preprocessing. Without rflag=true,
             this function utilizes standard distributed ADMM instead of RDMM
+    ret_lambda - boolean to determine if lambda is returned
     
 Outputs:
     mean(z) - optimal primal variable for the least squares problem
     lambda - final dual coefficients for distributed problem
 """
-function rdmm_socp(A, wy, wx, N, maxiter; mu=1, rflag=true)
+function rdmm_socp(A, wy, wx, N; maxiter=100, abserr=0.001, relerr=0.01, mu=1, rflag=true, ret_lambda = false)
     n = size(A,1)
     d = size(A,2)
     
@@ -201,14 +256,22 @@ function rdmm_socp(A, wy, wx, N, maxiter; mu=1, rflag=true)
         invAhattStSAhat[i] = inv(AhattStSAhat[i])
     end
     
+    error = abserr + relerr * (norm(wx) + norm(wy))
+    
     z = [zeros(n,1) for i=1:N]
     lambdavector = (A'*wy-wx)/N
     lambda = [lambdavector for i=1:N]
     pieces = [zeros(d,1) for i=1:N,j=1:N]
     
     for k=1:maxiter
+        zold = z
+        
         Threads.@threads for i=1:N
             z[i] = -invAhattStSAhat*lambda[i]
+        end
+        
+        if norm(z-zold) <= error
+            break
         end
         
         meanz =  mean(z)
@@ -222,7 +285,10 @@ function rdmm_socp(A, wy, wx, N, maxiter; mu=1, rflag=true)
         end
     end
     
-    return mean(z),lambda
+    if ret_lambda
+        return mean(z),lambda
+    end
+    return mean(z)
 end
 
 """
